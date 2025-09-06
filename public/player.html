@@ -1,0 +1,229 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Player Info</title>
+  <style>
+    :root { --bg:#1e1e1e; --panel:#242424; --text:#eaeaea; --muted:#a0a0a0; --border:#333; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial; padding:20px; }
+    .card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px; }
+    .row { margin:6px 0; }
+    .label { color:var(--muted); }
+    h1 { margin-top:0; }
+    pre { white-space:pre-wrap; word-break:break-word; background:#1b1b1b; padding:8px; border-radius:8px; border:1px solid var(--border); }
+    .big-card {
+      padding: 24px;
+      font-size: 1.2rem;
+      min-height: 120px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Player Info</h1>
+  <div id="playerCard" class="card">Loading…</div>
+
+  <script>
+  (async () => {
+    const params = new URLSearchParams(location.search);
+    const uid = params.get('uid');
+    if (!uid) {
+      document.getElementById('playerCard').textContent = 'Missing userId';
+      return;
+    }
+
+    const res = await fetch(`/api/account/${encodeURIComponent(uid)}`);
+    const data = await res.json();
+    if (data.error) {
+      document.getElementById('playerCard').textContent = data.error;
+      return;
+    }
+
+    const card = document.getElementById('playerCard');
+
+    // Dropdown wrapper
+    const selectorWrapper = document.createElement('div');
+    selectorWrapper.style.marginBottom = '16px';
+    selectorWrapper.style.display = 'flex';
+    selectorWrapper.style.justifyContent = 'center';
+    selectorWrapper.style.alignItems = 'center';
+
+    const label = document.createElement('label');
+    label.textContent = "Characters:";
+    label.style.marginRight = "12px";
+    label.style.color = "var(--muted)";
+    selectorWrapper.appendChild(label);
+
+    const select = document.createElement('select');
+    select.style.padding = '8px';
+    select.style.borderRadius = '8px';
+    select.style.border = '1px solid var(--border)';
+    select.style.background = '#1b1b1b';
+    select.style.color = 'white';
+    select.style.width = '10%';
+
+    data.characters.forEach((c, idx) => {
+      const option = document.createElement('option');
+      option.value = idx;
+      option.textContent = `${c.info.firstname || ''} ${c.info.lastname || ''}`.trim();
+      select.appendChild(option);
+    });
+
+    selectorWrapper.appendChild(select);
+
+    const details = document.createElement('div');
+    card.innerHTML = ''; // clear
+    card.appendChild(selectorWrapper);
+    card.appendChild(details);
+
+    // --- Job controls ---
+    const jobControls = document.createElement('div');
+    jobControls.style.margin = '16px 0';
+    jobControls.style.display = 'flex';
+    jobControls.style.gap = '12px';
+    jobControls.style.alignItems = 'center';
+    jobControls.style.justifyContent = 'center';
+
+    const jobSel = document.createElement('select');
+    const gradeSel = document.createElement('select');
+    const changeBtn = document.createElement('button');
+    changeBtn.textContent = 'Change Job';
+    const statusSpan = document.createElement('span');
+    statusSpan.style.color = 'var(--muted)';
+
+    [jobSel, gradeSel].forEach(sel => {
+      sel.style.padding = '8px';
+      sel.style.borderRadius = '8px';
+      sel.style.border = '1px solid var(--border)';
+      sel.style.background = '#1b1b1b';
+      sel.style.color = 'white';
+    });
+    changeBtn.style.padding = '10px 14px';
+    changeBtn.style.borderRadius = '10px';
+    changeBtn.style.border = '1px solid var(--border)';
+    changeBtn.style.background = '#2f6fec';
+    changeBtn.style.color = 'white';
+    changeBtn.style.cursor = 'pointer';
+
+    jobControls.append(jobSel, gradeSel, changeBtn, statusSpan);
+
+    let JOBS = [];
+
+    async function loadJobs() {
+      const res = await fetch('/api/jobs');
+      JOBS = await res.json();
+      jobSel.innerHTML = '';
+      JOBS.forEach(j => {
+        const opt = document.createElement('option');
+        opt.value = j.name;
+        opt.textContent = j.label;
+        jobSel.appendChild(opt);
+      });
+      updateGrades();
+    }
+
+    function updateGrades(pickHighest = false) {
+      gradeSel.innerHTML = '';
+      const j = JOBS.find(x => x.name === jobSel.value);
+      if (!j) return;
+      j.grades.forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g.level;
+        opt.textContent = `Grade ${g.level} – ${g.name}`;
+        gradeSel.appendChild(opt);
+      });
+      if (pickHighest && j.grades.length) {
+        gradeSel.value = String(j.grades[j.grades.length - 1].level);
+      }
+    }
+
+
+    jobSel.addEventListener('change', updateGrades);
+    loadJobs();
+
+    // Helper: render one character into a grid of cards
+    function showCharacter(char) {
+      details.innerHTML = `
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap:32px; max-width:1200px; margin:0 auto; justify-items:stretch;">
+          <div class="card big-card"><span class="label">CitizenID:</span><br>${char.citizenid}</div>
+          <div class="card big-card"><span class="label">Phone:</span><br>${char.info.phone || ''}</div>
+          <div class="card big-card"><span class="label">DOB:</span><br>${char.info.birthdate || ''}</div>
+          <div class="card big-card"><span class="label">Gender:</span><br>${char.info.gender || ''}</div>
+          <div class="card big-card"><span class="label">Money:</span><br>
+            Cash: ${char.money.cash ?? 0}<br>
+            Bank: ${char.money.bank ?? 0}<br>
+            Crypto: ${char.money.crypto ?? 0}
+          </div>
+          <div id="jobCard" class="card big-card">
+            <span class="label">Job:</span><br>
+            ${(char.job.label || char.job.name) ?? ''}<br>
+            Grade: ${char.job.grade?.level ?? ''}<br>
+            On Duty: ${char.job.onduty ?? char.job.onDuty ?? false}
+            <div id="jobControls"></div>
+          </div>
+        </div>
+      `;
+
+      // rebuild job select
+      jobSel.innerHTML = '';
+      JOBS.forEach(j => {
+        const opt = document.createElement('option');
+        opt.value = j.name;
+        opt.textContent = j.label;
+        jobSel.appendChild(opt);
+      });
+
+      // pick current job
+      if (char.job?.name) jobSel.value = char.job.name;
+
+      // rebuild grade select
+      updateGrades();
+
+      // pick current grade
+      if (char.job?.grade?.level != null) {
+        gradeSel.value = String(char.job.grade.level);
+      }
+
+      // inject controls into Job card
+      const jc = document.getElementById('jobControls');
+      jc.innerHTML = '';          // clear before re-adding
+      jc.appendChild(jobControls);
+
+
+      changeBtn.onclick = async () => {
+        statusSpan.textContent = "Updating…";
+        try {
+          const res = await fetch(`/api/player/${encodeURIComponent(char.citizenid)}/job`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jobName: jobSel.value,
+              gradeLevel: Number(gradeSel.value)
+            })
+          });
+          const out = await res.json();
+          if (!res.ok || out.error) throw new Error(out.error || "Failed");
+          statusSpan.textContent = "Job updated!";
+          char.job = out.job || char.job;
+          showCharacter(char); // re-render
+        } catch (e) {
+          statusSpan.textContent = `Error: ${e.message}`;
+        }
+      };
+    }
+
+    // Change event
+    select.addEventListener('change', () => {
+      const idx = parseInt(select.value, 10);
+      showCharacter(data.characters[idx]);
+    });
+
+    // Show first character by default
+    await loadJobs();
+    showCharacter(data.characters[0]);
+  })();
+  </script>
+</body>
+</html>

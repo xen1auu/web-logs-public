@@ -1,0 +1,225 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>FiveM Panel — Home</title>
+  <style>
+    .job-card {
+  text-align: center;
+  justify-items: center;
+  }
+  .job-card .job-icon {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    margin-bottom: 8px;
+  }
+    :root {
+      --bg:#1e1e1e; --panel:#242424; --text:#eaeaea; --muted:#a0a0a0;
+      --border:#333; --accent:#3a86ff; --ok:#1f9d5b; --warn:#d97706;
+    }
+    html,body{height:100%}
+    body{
+      margin:0; background:var(--bg); color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
+      display:flex; flex-direction:column;
+    }
+    header{
+      padding:16px 20px; background:var(--panel); border-bottom:1px solid var(--border);
+      display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    }
+    .title-row{display:flex; align-items:center; gap:10px; margin-right:auto;}
+    .hamburger{
+      background:transparent; border:1px solid var(--border); color:var(--text);
+      border-radius:8px; width:40px; height:34px; display:grid; place-items:center;
+      cursor:pointer; font-size:20px; line-height:1;
+    }
+    h1{margin:0; font-size:20px; font-weight:600}
+    nav a{
+      color:var(--text); text-decoration:none; border:1px solid var(--border);
+      padding:8px 12px; border-radius:8px; background:#1b1b1b;
+    }
+    nav a.primary{background:var(--accent); border-color:var(--accent);}
+    main{padding:20px; display:grid; gap:16px}
+    .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px}
+    .card{
+      background:var(--panel); border:1px solid var(--border); border-radius:12px;
+      padding:16px; display:grid; gap:8px;
+    }
+    .card h3{margin:0 0 4px 0; font-size:16px}
+    .muted{color:var(--muted); font-size:13px}
+    .kpi{font-size:28px; font-weight:700}
+    /* Drawer + overlay (same look as logs page) */
+    .overlay{position:fixed; inset:0; background:rgba(0,0,0,.5); opacity:0; pointer-events:none; transition:opacity .16s; z-index:10;}
+    .overlay.open{opacity:1; pointer-events:auto;}
+    .drawer{
+      position:fixed; left:0; top:0; bottom:0; width:320px; max-width:85vw;
+      background:var(--panel); border-right:1px solid var(--border);
+      transform:translateX(-100%); transition:transform .18s; z-index:11; display:flex; flex-direction:column;
+    }
+    .drawer.open{transform:translateX(0)}
+    .drawer header{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 14px; border-bottom:1px solid var(--border)}
+    .drawer .close{background:transparent; border:1px solid var(--border); color:var(--text); border-radius:8px; height:30px; padding:0 10px; cursor:pointer;}
+    .drawer-content{padding:14px; display:grid; gap:10px}
+    .drawer input[type="text"]{width:90%; background:#1b1b1b; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px 12px}
+  </style>
+</head>
+<body>
+  <!-- Drawer -->
+  <div class="overlay" id="overlay"></div>
+  <aside class="drawer" id="drawer" aria-hidden="true">
+    <header>
+      <h2 style="margin:0;font-size:16px;font-weight:600">Tools</h2>
+      <button class="close" id="closeDrawer">Close</button>
+    </header>
+    <div class="drawer-content">
+    <label for="drawerSearch">Search</label>
+    <input id="drawerSearch" type="text" placeholder="Type to search…" />
+    <div id="searchResults" class="card" style="display:none;"></div>
+  </div>
+  </aside>
+
+  <header>
+    <div class="title-row">
+      <button class="hamburger" id="openDrawer" title="Open menu">☰</button>
+      <h1>Dashboard</h1>
+    </div>
+    <nav>
+      <a href="/logs" class="primary">Log Watch</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="grid">
+      <!-- Police Job Card -->
+      <div class="card job-card">
+        <img src="/images/police.png" alt="Police Logo" class="job-icon" />
+        <h3>Police</h3>
+        <div class="kpi" id="policeCount">0 Online</div>
+        <div class="muted">Law enforcement currently on duty</div>
+      </div>
+    </div>
+  </main>
+
+<script>
+  // ---------- Drawer behavior (unchanged) ----------
+  const drawer = document.getElementById('drawer');
+  const overlay = document.getElementById('overlay');
+  document.getElementById('openDrawer').addEventListener('click', () => {
+    drawer.classList.add('open');
+    overlay.classList.add('open');
+    drawer.setAttribute('aria-hidden','false');
+    setTimeout(()=>document.getElementById('drawerSearch')?.focus(), 50);
+  });
+  document.getElementById('closeDrawer').addEventListener('click', () => {
+    drawer.classList.remove('open');
+    overlay.classList.remove('open');
+    drawer.setAttribute('aria-hidden','true');
+  });
+  overlay.addEventListener('click', () => {
+    drawer.classList.remove('open');
+    overlay.classList.remove('open');
+    drawer.setAttribute('aria-hidden','true');
+  });
+  window.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      drawer.classList.remove('open');
+      overlay.classList.remove('open');
+      drawer.setAttribute('aria-hidden','true');
+    }
+  });
+
+  // ---------- Job cards (unchanged) ----------
+  const jobs = [
+    { id: 'police', name: 'Police', icon: '/images/police.png' },
+    { id: 'ems', name: 'EMS', icon: '/images/ems.png' },
+    { id: 'bennys', name: 'Bennys Customs', icon: '/images/bennys.png' }
+  ];
+  const grid = document.querySelector('.grid');
+  grid.innerHTML = '';
+  jobs.forEach(job => {
+    const card = document.createElement('div');
+    card.className = 'card job-card';
+    card.innerHTML = `
+      <img src="${job.icon}" alt="${job.name}" class="job-icon" />
+      <h3>${job.name}</h3>
+      <div class="kpi" id="${job.id}Count">0 Online</div>
+      <div class="muted">${job.name} currently on duty</div>
+    `;
+    grid.appendChild(card);
+  });
+  function updateJobCounts() {
+    document.getElementById('policeCount').textContent = "5 Online";
+    document.getElementById('emsCount').textContent = "2 Online";
+    document.getElementById('bennysCount').textContent = "3 Online";
+  }
+  updateJobCounts();
+
+  // ---------- Player search wiring ----------
+  const searchInput = document.getElementById('drawerSearch');
+
+  // Create a results box right under the input if not present
+  let resultsBox = document.getElementById('searchResults');
+  if (!resultsBox) {
+    resultsBox = document.createElement('div');
+    resultsBox.id = 'searchResults';
+    resultsBox.className = 'card';
+    resultsBox.style.display = 'none';
+    resultsBox.style.marginTop = '8px';
+    resultsBox.style.maxHeight = '240px';
+    resultsBox.style.overflowY = 'auto';
+    searchInput.insertAdjacentElement('afterend', resultsBox);
+  }
+
+  // Small debounce to avoid spamming the server
+  let searchTimer;
+  searchInput.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(runSearch, 200);
+  });
+
+  async function runSearch() {
+    const q = searchInput.value.trim();
+    if (!q) {
+      resultsBox.style.display = 'none';
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/players?q=${encodeURIComponent(q)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const players = await res.json();
+
+      if (!players.length) {
+        resultsBox.innerHTML = `<div class="muted">No players found</div>`;
+        resultsBox.style.display = 'block';
+        return;
+        }
+
+      //search
+      resultsBox.innerHTML = players.map(p => `
+        <div class="result-row" data-id="${p.id}" style="padding:8px;border-bottom:1px solid var(--border);cursor:pointer">
+          <div>${p.name || '(unknown)'}</div>
+          <div class="player-id" style="font-size:12px;color:var(--muted)">${p.id}</div>
+        </div>
+      `).join('');
+      resultsBox.style.display = 'block';
+
+      resultsBox.querySelectorAll('.result-row').forEach(row => {
+        row.addEventListener('click', () => {
+          const uid = row.getAttribute('data-id');
+          window.open(`/player.html?uid=${encodeURIComponent(uid)}`, '_blank');
+        });
+      });
+
+
+    } catch (err) {
+      resultsBox.innerHTML = `<div class="muted">Error: ${err.message}</div>`;
+      resultsBox.style.display = 'block';
+    }
+  }
+</script>
+
+
+</body>
+</html>

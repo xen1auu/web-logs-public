@@ -1,0 +1,249 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>FiveM Logs</title>
+  <style>
+    :root {
+      --bg: #1e1e1e;
+      --panel: #242424;
+      --text: #eaeaea;
+      --muted: #a0a0a0;
+      --border: #333;
+      --accent: #3a86ff;
+    }
+    html, body { height: 100%; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 16px 20px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-right: 16px;
+    }
+    h1 { margin: 0; font-size: 20px; font-weight: 600; }
+
+    /* hamburger button */
+    .hamburger {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      width: 60px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      font-size: 20px; /* shows ☰ nicely */
+      line-height: 1;
+    }
+    .hamburger:active { transform: translateY(1px); }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    label { font-size: 13px; color: var(--muted); }
+    select, button {
+      background: #1b1b1b;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      outline: none;
+    }
+    button {
+      background: var(--accent);
+      border-color: var(--accent);
+      cursor: pointer;
+    }
+    button:active { transform: translateY(1px); }
+
+    .table-wrap { padding: 16px 20px; overflow: auto; flex: 1; }
+
+    table { border-collapse: collapse; width: 100%; min-width: 720px; }
+    th, td { border-bottom: 1px solid var(--border); padding: 10px 12px; vertical-align: top; }
+    th {
+      text-align: left; font-weight: 600; color: var(--muted);
+      background: #1a1a1a; position: sticky; top: 0; z-index: 1;
+    }
+    tr:hover td { background: #202020; }
+
+    th:nth-child(1), td:nth-child(1) { width: 170px; }
+    th:nth-child(2), td:nth-child(2) { width: 160px; }
+    th:nth-child(3), td:nth-child(3) { width: 260px; }
+    th:nth-child(4), td:nth-child(4) { width: auto; }
+
+    .player-id { color: var(--muted); font-size: 12px; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); background: #161616; font-size: 12px; color: var(--text); }
+
+    /* Drawer + overlay */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      opacity: 0; pointer-events: none; transition: opacity 160ms ease; z-index: 10;
+    }
+    .overlay.open { opacity: 1; pointer-events: auto; }
+    .drawer {
+      position: fixed; left: 0; top: 0; bottom: 0;
+      width: 320px; max-width: 85vw; background: var(--panel);
+      border-right: 1px solid var(--border);
+      transform: translateX(-100%); transition: transform 180ms ease; z-index: 11;
+      display: flex; flex-direction: column;
+    }
+    .drawer.open { transform: translateX(0); }
+    .drawer header {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 12px 14px; border-bottom: 1px solid var(--border); background: transparent;
+    }
+    .drawer-title { margin: 0; font-size: 16px; font-weight: 600; }
+    .drawer .close {
+      background: transparent; border: 1px solid var(--border); color: var(--text);
+      border-radius: 8px; height: 30px; padding: 0 10px; cursor: pointer;
+    }
+    .drawer-content { padding: 14px; display: grid; gap: 10px; }
+    .drawer input[type="text"] {
+      width: 90%; background: #1b1b1b; color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    }
+    .helper { font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <!-- overlay + left drawer -->
+  <div class="overlay" id="overlay"></div>
+  <aside class="drawer" id="drawer" aria-hidden="true">
+    <header>
+      <h2 class="drawer-title">Tools</h2>
+      <button class="close" id="closeDrawer" aria-label="Close panel">Close</button>
+    </header>
+    <div class="drawer-content">
+      <label for="drawerSearch">Search</label>
+      <!-- Drawer-only search (placeholder for now) -->
+      <input id="drawerSearch" type="text" placeholder="Type to search…" />
+      <div class="helper">Search bar is just UI for now.</div>
+    </div>
+  </aside>
+
+  <header>
+    <div class="title-row">
+      <!-- Hamburger BEFORE title -->
+      <button class="hamburger" id="openDrawer" aria-label="Open menu" title="Open menu">☰</button>
+      <h1>Server Logs</h1>
+    </div>
+
+    <div class="controls">
+      <label for="category">Category</label>
+      <select id="category">
+        <option value="">(All)</option>
+        <option value="player_connect">player_connect</option>
+        <option value="player_drop">player_drop</option>
+        <option value="chat">chat</option>
+        <option value="death">death</option>
+        <option value="resource">resource</option>
+        <option value="trunk_put">trunk_put</option>
+        <option value="trunk_take">trunk_take</option>
+        <option value="glove_put">glove_put</option>
+        <option value="glove_take">glove_take</option>
+        <option value="ground_drop">ground_drop</option>
+        <option value="ground_pickup">ground_pickup</option>
+      </select>
+
+      <!-- removed header search so it only appears in the drawer -->
+
+      <button id="refresh">Refresh</button>
+    </div>
+  </header>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Time & Date</th>
+          <th>Category</th>
+          <th>Player</th>
+          <th>Info</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    // Drawer logic
+    const drawer = document.getElementById('drawer');
+    const overlay = document.getElementById('overlay');
+    const openBtn = document.getElementById('openDrawer');
+    const closeBtn = document.getElementById('closeDrawer');
+
+    function openDrawer() {
+      drawer.classList.add('open');
+      overlay.classList.add('open');
+      drawer.setAttribute('aria-hidden', 'false');
+      setTimeout(() => document.getElementById('drawerSearch')?.focus(), 50);
+    }
+    function closeDrawer() {
+      drawer.classList.remove('open');
+      overlay.classList.remove('open');
+      drawer.setAttribute('aria-hidden', 'true');
+    }
+
+    openBtn.addEventListener('click', openDrawer);
+    closeBtn.addEventListener('click', closeDrawer);
+    overlay.addEventListener('click', closeDrawer);
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
+
+    // Logs loading (unchanged except header search removed)
+    async function loadLogs() {
+  const params = new URLSearchParams();
+  const type = document.getElementById('category').value.trim();
+  if (type) params.set('type', type);
+  params.set('limit', '200');
+
+  const res = await fetch('/api/logs?' + params.toString());
+  let data = await res.json();
+
+  // Force timestamps to numbers and sort newest → oldest
+  data.sort((a, b) => Number(b.ts) - Number(a.ts));
+
+  const tb = document.getElementById('tbody');
+  tb.innerHTML = '';
+  for (const log of data) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${new Date(Number(log.ts)).toLocaleString()}</td>
+      <td><span class="pill">${log.type || ''}</span></td>
+      <td>${(log.player_name || '')}
+          <div class="player-id">${log.player_id || ''}</div>
+      </td>
+      <td>${(log.message || '').replace(/[<>&]/g, s => (
+        {'<':'&lt;','>':'&gt;','&':'&amp;'}[s]
+      ))}</td>
+    `;
+    tb.appendChild(tr);
+  }
+}
+
+
+    document.getElementById('refresh').addEventListener('click', loadLogs);
+    document.getElementById('category').addEventListener('change', loadLogs);
+    loadLogs();
+  </script>
+</body>
+</html>
